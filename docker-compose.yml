@@ -1,0 +1,11 @@
+services:
+  md-theme-lab:
+    build: .
+    ports:
+      - "19527:19527"
+    volumes:
+      - ./data:/app/data      # SQLite 持久化
+      - ./logs:/app/logs      # 日志持久化
+    env_file:
+      - .env                  # ANTHROPIC_API_KEY 等（需先创建）
+    restart: unless-stopped
