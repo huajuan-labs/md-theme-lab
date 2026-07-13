@@ -1,0 +1,35 @@
+{
+  "name": "md-theme-lab",
+  "version": "1.0.0",
+  "description": "Markdown theme laboratory — write markdown, preview with 20+ themes, export images. Full-stack with AI theme generation.",
+  "license": "MIT",
+  "author": "huajuan-labs",
+  "homepage": "https://md.huajuan-labs.com",
+  "repository": "https://github.com/huajuan-labs/md-theme-lab.git",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build:vendor": "node scripts/build-vendor.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "archiver": "^8.0.0",
+    "better-sqlite3": "^12.11.1",
+    "csv-parser": "^3.2.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "dompurify": "^3.1.6",
+    "esbuild": "^0.28.0",
+    "lucide": "^1.16.0",
+    "marked": "^12.0.2",
+    "morphdom": "^2.7.8",
+    "sucrase": "^3.35.1"
+  }
+}
