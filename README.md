@@ -1,30 +1,65 @@
 # 🎨 MD Theme Lab
 
-> Markdown 主题实验室 —— 写 markdown，选主题，预览美化效果，导出图片。
+> Markdown 主题实验室 —— ZoneDSL 的主题扩展工具，也可独立使用。
 
-20+ 主题预设（杂志 / 海报 / PPT / 公众号 / 极简 / 报纸 / 学术 / 清单 / 时间线 / 对比 / 简报...），Design Token 系统，AI 主题/调色板生成，一键导出图片。
+写 markdown，选主题，预览美化效果，导出图片。20+ 主题预设，Design Token 系统，AI 主题/调色板生成，一键导出。设计的主题可导出为 ZoneDSL `.wxss` 主题文件，直接在小程序/Web 中使用。
 
-**👉 [在线体验](https://md.huajuan-labs.com)**（静态 demo，核心功能可用）
+## 快速开始
 
-## 两种用法
-
-### 1. 在线 demo（静态，零安装）
-
-打开 [md.huajuan-labs.com](https://md.huajuan-labs.com)，直接用：编辑 markdown → 选主题 → 预览 → html2canvas 导出图片。
-
-静态模式下 AI 生成 / 主题保存不可用（需后端），底部会提示。
-
-### 2. 自托管全栈（完整功能）
+### Docker 部署（推荐）
 
 ```bash
 git clone https://github.com/huajuan-labs/md-theme-lab.git
 cd md-theme-lab
+cp .env.example .env  # 填入 API key
+docker compose up -d  # http://localhost:19527
+```
+
+### 本地运行
+
+```bash
 npm install
-cp .env.example .env  # 填入 ANTHROPIC_API_KEY
+cp .env.example .env  # 填入 API key（或不填，界面齿轮里配）
 npm start             # http://localhost:3000
 ```
 
-全栈模式解锁：AI 主题生成、AI 调色板生成、主题保存/克隆/历史、服务端 CSS 导出。
+### 静态部署（Cloudflare Pages / Vercel）
+
+部署 `public/` 目录。核心功能（编辑 + 主题 + 预览 + 图片导出）全客户端可用，无需后端。AI 功能需自托管。
+
+## API 配置
+
+**两种方式配 API key**：
+
+1. **界面配置**（推荐）—— 点右上角 ⚙ 齿轮按钮，填入 API Key / Base URL / Model / 格式。存在浏览器 localStorage，不清除不丢。
+2. **.env 文件** —— 自托管时在 `.env` 里配，所有用户共享。
+
+```env
+ANTHROPIC_API_KEY=sk-...                    # 你的 API key
+ANTHROPIC_BASE_URL=https://apihub.agnes-ai.com/v1  # OpenAI 兼容或 Anthropic 端点
+CLAUDE_MODEL=agnes-2.0-flash                # 模型名
+PORT=19527                                  # 端口
+```
+
+**支持两种 API 格式**：
+- **OpenAI 兼容**（默认）：Agnes / OpenAI / OpenRouter / Ollama 等任何 `/chat/completions` 端点
+- **Anthropic**：Claude 原生 `/v1/messages` 格式
+- 自动检测：URL 含 `anthropic` → Anthropic，否则 → OpenAI 兼容
+
+> ⚠️ **免费模型延迟提示**：默认配置使用免费模型（如 Agnes），AI 生成（主题/调色板）可能有一定延迟或偶尔失败，属正常现象。用自己的付费 key 体验更稳定。
+
+## 功能
+
+| 功能 | 静态模式 | 全栈模式 |
+|---|---|---|
+| Markdown 编辑 + 实时预览 | ✅ | ✅ |
+| 20+ 主题预设 + 配色变体 | ✅ | ✅ |
+| Design Token 可视化调整 | ✅ | ✅ |
+| 图片导出（html2canvas） | ✅ | ✅ |
+| CSS 主题包导出 | ❌ | ✅ |
+| AI 主题生成 | ❌ | ✅ |
+| AI 调色板生成 | ❌ | ✅ |
+| 主题保存/克隆/历史 | ❌ | ✅ |
 
 ## 主题预设
 
@@ -38,11 +73,16 @@ npm start             # http://localhost:3000
 
 每个主题支持暖橙/玫粉/深色/企业蓝/海军/炭灰/青绿等配色变体。
 
-## 技术栈
+## ZoneDSL 联动
 
-- **前端**：单 HTML 文件（marked + morphdom + html2canvas），Design Token 系统（CSS 变量运行时切换）
-- **后端**：Express + Anthropic SDK + SQLite（主题持久化）
-- **AI**：Anthropic Claude（主题生成、调色板生成、内容分析）
+md-theme-lab 是 [ZoneDSL](https://github.com/huajuan-labs/zonedsl) 的主题扩展工具。设计的主题可导出为 ZoneDSL 兼容的 `.wxss` 文件：
+
+1. 在 md-theme-lab 中设计/调整主题（可视化 Token + AI 生成 + 实时预览）
+2. 导出为 ZoneDSL 主题（变量映射 `--accent` → `--mz-accent` + 选择器适配）
+3. 放入 ZoneDSL 的 `packages/wechat/themes/`
+4. ZoneDSL 小程序/Web 直接使用新主题
+
+也可独立使用（纯 markdown 排版 + 图片导出），不依赖 ZoneDSL。
 
 ## 项目结构
 
@@ -50,19 +90,22 @@ npm start             # http://localhost:3000
 md-theme-lab/
 ├── public/
 │   ├── index.html      ← 前端单文件应用
-│   └── vendor/         ← marked / morphdom / html2canvas 等
+│   └── vendor/         ← marked / morphdom / html2canvas
 ├── server.js           ← Express 后端（AI + 持久化 + 导出）
 ├── export-themes.js    ← 主题 CSS 打包导出
 ├── promax-api.js       ← 设计参考数据 API
-├── data/promax/        ← 颜色/样式/字体 CSV 参考数据
-└── scripts/build-vendor.mjs
+├── data/promax/        ← 颜色/样式/字体 CSV
+├── Dockerfile          ← Docker 容器化
+├── docker-compose.yml  ← 一键部署（端口 19527）
+└── .env.example        ← API 配置模板
 ```
 
-## 部署
+## 技术栈
 
-**Cloudflare Pages（静态前端）**：部署 `public/` 目录。核心功能（编辑 + 主题 + 预览 + 图片导出）全客户端可用。
-
-**全栈（Node 主机）**：Railway / Render / Fly / VPS，`npm start`。需 `ANTHROPIC_API_KEY` 环境变量。
+- **前端**：单 HTML 文件（marked + morphdom + html2canvas），Design Token 系统
+- **后端**：Express + SQLite（主题持久化）
+- **AI**：双格式支持（OpenAI 兼容 / Anthropic），界面可配 key
+- **部署**：Docker / Node / 静态托管
 
 ## License
 
