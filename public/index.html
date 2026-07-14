@@ -3949,10 +3949,10 @@ data: {"delta":"# 今日简报\n\n..."}</pre>
     <!-- 三栏布局：编辑器 + 预览 + 工具栏 -->
     <div class="workspace" id="workspace">
       <div class="card editor-card">
-        <div class="card-header" style="gap:8px;flex-wrap:wrap">
-          <span>Markdown 文档</span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <select id="sample-select" class="btn" style="padding:4px 10px;font-size:12px">
+        <div class="card-header" style="gap:6px;flex-wrap:nowrap;overflow:hidden">
+          <span style="white-space:nowrap;flex-shrink:0">Markdown 文档</span>
+          <div style="display:flex;gap:4px;flex-wrap:nowrap;align-items:center;overflow-x:auto;scrollbar-width:none;min-width:0">
+            <select id="sample-select" class="btn" style="padding:4px 8px;font-size:12px;flex-shrink:0">
               <option value="default">基础示例</option>
               <option value="briefing">简报样例</option>
               <option value="full">完整特性</option>
@@ -3960,14 +3960,14 @@ data: {"delta":"# 今日简报\n\n..."}</pre>
               <option value="timeline">事件脉络</option>
               <option value="infographic">信息图集</option>
               <option value="kitchen">全特性大全 🍱</option>
-              <optgroup label="🔥 简报样例">
+              <optgroup label="简报样例">
                 <option value="sample-stock">A 股大涨简报</option>
                 <option value="sample-divergence">A 股结构性分化</option>
                 <option value="sample-entertainment">娱乐热点分析</option>
               </optgroup>
             </select>
-            <button class="btn" id="stream-btn" style="padding:4px 10px;font-size:12px">▶ 流式</button>
-            <span id="stream-speed" style="font-size:11px;color:var(--text-secondary)">速度 100字/秒</span>
+            <button class="btn" id="stream-btn" style="padding:4px 8px;font-size:12px;flex-shrink:0;white-space:nowrap">▶ 流式</button>
+            <span id="stream-speed" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;display:none">100字/秒</span>
           </div>
         </div>
         <textarea id="editor" spellcheck="false"></textarea>
@@ -12276,10 +12276,9 @@ data
 .settings-save{background:var(--accent,#c45c2e);color:#fff}
 .settings-clear{background:transparent;border:1px solid var(--border,#e8e8e8);color:var(--text-secondary,#666)}
 .settings-hint{margin-top:12px;font-size:11px;color:var(--text-secondary,#666);line-height:1.5}
-/* 全屏预览 */
-.preview-wrap.fullscreen{position:fixed;inset:0;z-index:99997;background:#fff;overflow-y:auto;overscroll-behavior:contain;padding:48px 24px 24px}
+/* 全屏预览 — preview 移到 body 下, 脱离 overflow:hidden 父容器 */
+#preview.fs-mode{position:fixed;inset:0;width:100%!important;max-width:none!important;height:100%!important;z-index:99997;background:#fff;overflow-y:auto;overscroll-behavior:contain;padding:48px 24px 24px}
 html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
-.preview-wrap.fullscreen #preview{max-width:820px;margin:0 auto;min-height:calc(100vh - 72px)}
 .fs-close{position:fixed;top:12px;right:16px;z-index:99998;background:var(--panel,#fff);border:1px solid var(--border,#e8e8e8);border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;display:none;color:var(--text,#1a1a1a)}
 .preview-wrap.fullscreen ~ .fs-close{display:block}
 </style>
@@ -12375,6 +12374,17 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
     if (iconExpand) iconExpand.style.display = isFs ? 'none' : '';
     if (iconCompress) iconCompress.style.display = isFs ? '' : 'none';
     if (fsClose) fsClose.style.display = isFs ? 'block' : 'none';
+    // 全屏时把 preview 移到 body 下（脱离 overflow:hidden 的父容器），退出时移回原位
+    var preview = document.getElementById('preview');
+    if (isFs && preview) {
+      preview._origParent = previewWrap;
+      document.body.appendChild(preview);
+      preview.classList.add('fs-mode');
+    } else if (!isFs && preview && preview._origParent) {
+      preview.classList.remove('fs-mode');
+      preview._origParent.appendChild(preview);
+      preview._origParent = null;
+    }
   }
   if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
   if (fsClose) fsClose.addEventListener('click', toggleFullscreen);
