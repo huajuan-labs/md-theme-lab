@@ -27,13 +27,14 @@ if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
   process.exit(1);
 }
 
-const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-4-7';
-const BASE_URL = process.env.ANTHROPIC_BASE_URL;
+const MODEL = process.env.CLAUDE_MODEL || 'agnes-2.0-flash';
+const BASE_URL = process.env.ANTHROPIC_BASE_URL || 'https://apihub.agnes-ai.com/v1';
 const MODELS_ENV = process.env.CLAUDE_MODELS
   ? process.env.CLAUDE_MODELS.split(',').map(s => s.trim()).filter(Boolean)
   : null;
 const AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
 const API_KEY = process.env.ANTHROPIC_API_KEY;
+const IMAGE_MODEL = process.env.IMAGE_MODEL || 'agnes-image-2.1-flash';
 
 const client = new Anthropic({
   // Anthropic SDK accepts either: apiKey -> x-api-key header,
@@ -43,14 +44,7 @@ const client = new Anthropic({
   ...(BASE_URL ? { baseURL: BASE_URL } : {}),
 });
 
-// Agnes AI (OpenAI-compatible) — drives /api/zone ZoneDSL streaming.
-// Other endpoints (artifacts chat, palette/prompt gen) still use Anthropic.
-const AGNES_API_KEY = process.env.AGNES_API_KEY;
-const AGNES_BASE_URL = process.env.AGNES_BASE_URL || 'https://apihub.agnes-ai.com/v1';
-const AGNES_MODEL = process.env.AGNES_MODEL || 'agnes-2.0-flash';
-
-console.log(`[config] anthropic model=${MODEL}${BASE_URL ? ` baseURL=${BASE_URL}` : ''} auth=${AUTH_TOKEN ? 'Bearer' : 'x-api-key'}`);
-console.log(`[config] agnes model=${AGNES_MODEL} baseURL=${AGNES_BASE_URL} ${AGNES_API_KEY ? 'key=✓' : 'key=✗'}`);
+console.log(`[config] model=${MODEL} baseURL=${BASE_URL} auth=${AUTH_TOKEN ? 'Bearer' : 'x-api-key'}`);
 
 // JSONL chat log — one line per /api/chat call. Append-only daily file
 // under logs/. Used to debug "why did the model return X?" — captures
@@ -594,11 +588,11 @@ const ZONE_TOOLS = {
       },
     },
     async exec({ prompt, ratio, size }) {
-      const r = await fetch(`${AGNES_BASE_URL}/images/generations`, {
+      const r = await fetch(`${BASE_URL}/images/generations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AGNES_API_KEY}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
         body: JSON.stringify({
-          model: AGNES_IMAGE_MODEL,
+          model: IMAGE_MODEL,
           prompt,
           size: size || '1K',
           ratio: ratio || '16:9',
@@ -652,13 +646,13 @@ function truncate(s, n) {
 
 app.post('/api/zone', async (req, res) => {
   const { messages, model: requestModel } = req.body;
-  const model = requestModel || AGNES_MODEL;
+  const model = requestModel || MODEL;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array required' });
   }
-  if (!AGNES_API_KEY) {
-    return res.status(500).json({ error: 'AGNES_API_KEY not set in .env' });
+  if (!API_KEY) {
+    return res.status(500).json({ error: 'API_KEY not set in .env' });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -687,11 +681,11 @@ app.post('/api/zone', async (req, res) => {
         ...(isLast ? {} : { tools, tool_choice: 'auto' }),
       };
 
-      const upstream = await fetch(`${AGNES_BASE_URL}/chat/completions`, {
+      const upstream = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AGNES_API_KEY}`,
+          'Authorization': `Bearer ${API_KEY}`,
         },
         body: JSON.stringify(payload),
       });
@@ -803,21 +797,20 @@ app.post('/api/zone', async (req, res) => {
   }
 });
 
-// ===== Agnes image / Pexels — 给组件层 ::image gen=/search= 用的端点 =====
+// ===== Image generation — 给组件层 ::image gen= 用的端点 =====
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
-const AGNES_IMAGE_MODEL = process.env.AGNES_IMAGE_MODEL || 'agnes-image-2.1-flash';
 
 // POST /api/image  { prompt, size?, ratio? } → { url }
 app.post('/api/image', async (req, res) => {
   const { prompt, size, ratio } = req.body || {};
   if (!prompt) return res.status(400).json({ error: 'prompt required' });
-  if (!AGNES_API_KEY) return res.status(500).json({ error: 'AGNES_API_KEY not set' });
+  if (!API_KEY) return res.status(500).json({ error: 'API_KEY not set' });
   try {
-    const r = await fetch(`${AGNES_BASE_URL}/images/generations`, {
+    const r = await fetch(`${BASE_URL}/images/generations`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AGNES_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
       body: JSON.stringify({
-        model: AGNES_IMAGE_MODEL,
+        model: IMAGE_MODEL,
         prompt,
         ...(size ? { size } : {}),
         ...(ratio ? { ratio } : {}),
