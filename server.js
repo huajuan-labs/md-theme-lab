@@ -23,8 +23,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-  console.error('[fatal] Set ANTHROPIC_API_KEY (x-api-key) or ANTHROPIC_AUTH_TOKEN (Bearer auth) in .env.');
-  process.exit(1);
+  console.warn('[warn] No API key in .env. Server starts, but AI features need key configured via UI (gear icon) or .env.');
 }
 
 const MODEL = process.env.CLAUDE_MODEL || 'agnes-2.0-flash';
