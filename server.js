@@ -1416,5 +1416,5 @@ app.post('/api/export', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  花卷工厂 running at http://0.0.0.0:${PORT}\n`);
+  console.log(`\n  花卷实验室 running at http://0.0.0.0:${PORT}\n`);
 });
