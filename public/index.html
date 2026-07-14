@@ -12415,7 +12415,7 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
 
     // 恢复 localStorage 记忆的宽度
     var saved = null;
-    try { saved = JSON.parse(localStorage.getItem('md-theme-lab-cols') || 'null'); } catch(_){}
+    try { saved = JSON.parse(sessionStorage.getItem('md-theme-lab-cols') || 'null'); } catch(_){}
     if (saved && saved.c1 && saved.c2 && saved.c3) {
       ws.style.setProperty('--ws-col1', saved.c1 + 'px');
       ws.style.setProperty('--ws-col2', saved.c2 + 'px');
@@ -12463,7 +12463,7 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
       document.body.style.userSelect = '';
       // 存 localStorage
       try {
-        localStorage.setItem('md-theme-lab-cols', JSON.stringify({
+        sessionStorage.setItem('md-theme-lab-cols', JSON.stringify({
           c1: ws.querySelector('.editor-card').offsetWidth,
           c2: ws.children[2].offsetWidth,
           c3: ws.children[4].offsetWidth,
