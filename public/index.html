@@ -10780,10 +10780,9 @@ data
         if (label) label.textContent = '生成中…';
         captureBtn.disabled = true;
         try {
-          // 取背景色（来自 token）作为画布底色，避免透明导致 PNG 黑底
-          const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#fff';
+          // 不设 backgroundColor, 让预览元素自己的背景(含网格)透出
           const canvas = await html2canvas(target, {
-            backgroundColor: bg,
+            backgroundColor: null,
             scale: window.devicePixelRatio > 1 ? 2 : 1.5,
             useCORS: true,
             logging: false,
@@ -12404,7 +12403,7 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
     var themeName = (document.getElementById('theme-label')?.textContent || 'theme').trim();
     var ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     // 用 html2canvas 截图(跟 PNG 导出一样, 已验证能跑), 再用 jsPDF 包 PDF
-    window.html2canvas(preview, { scale: 3, useCORS: true, backgroundColor: '#ffffff', logging: false }).then(function(canvas) {
+    window.html2canvas(preview, { scale: 3, useCORS: true, backgroundColor: null, logging: false }).then(function(canvas) {
       var imgData = canvas.toDataURL('image/jpeg', 0.95);
       var imgW = canvas.width;
       var imgH = canvas.height;
