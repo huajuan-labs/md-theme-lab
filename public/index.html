@@ -3795,6 +3795,13 @@
       </svg>
       导出主题包
     </button>
+    <button class="nav-export" id="nav-settings" title="配置 API Key">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-2px">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+      设置
+    </button>
     <span class="nav-meta" id="nav-theme-meta">当前主题：学习笔记</span>
   </nav>
 
@@ -12238,6 +12245,101 @@ data
 <div class="no-backend-banner" id="no-backend-banner">⚡ 静态模式：编辑 + 主题 + 预览 + 图片导出可用。AI 生成 / 主题保存需 <a href="https://github.com/huajuan-labs/md-theme-lab#自托管全栈" target="_blank">自托管后端</a></div>
 <script>
 (function(){fetch('/api/health').then(function(r){if(!r.ok)throw 0}).catch(function(){var b=document.getElementById('no-backend-banner');if(b)b.style.display='block';document.body.classList.add('no-backend')})})();
+
+<!-- ===== 设置 modal：用户配置自己的 API Key ===== -->
+<style>
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:none;align-items:center;justify-content:center}
+.settings-overlay.show{display:flex}
+.settings-card{background:var(--panel,#fff);border-radius:16px;padding:28px 32px;width:min(480px,92vw);box-shadow:0 12px 40px rgba(0,0,0,.15);max-height:90vh;overflow-y:auto}
+.settings-card h3{margin:0 0 4px;font-size:18px;color:var(--text,#1a1a1a)}
+.settings-card p{margin:0 0 20px;font-size:13px;color:var(--text-secondary,#666)}
+.settings-field{margin-bottom:14px}
+.settings-field label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary,#666);margin-bottom:4px}
+.settings-field input,.settings-field select{width:100%;padding:8px 12px;border:1px solid var(--border,#e8e8e8);border-radius:8px;font-size:14px;background:var(--panel,#fff);color:var(--text,#1a1a1a);box-sizing:border-box}
+.settings-field input:focus,.settings-field select:focus{outline:none;border-color:var(--accent,#c45c2e)}
+.settings-actions{display:flex;gap:10px;margin-top:20px}
+.settings-actions button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.settings-save{background:var(--accent,#c45c2e);color:#fff}
+.settings-clear{background:transparent;border:1px solid var(--border,#e8e8e8);color:var(--text-secondary,#666)}
+.settings-hint{margin-top:12px;font-size:11px;color:var(--text-secondary,#666);line-height:1.5}
+</style>
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-card">
+    <h3>⚙️ API 配置</h3>
+    <p>填入你自己的 API Key 即可使用 AI 功能（不填则用服务端默认配置）</p>
+    <div class="settings-field">
+      <label>API Key</label>
+      <input type="password" id="settings-apikey" placeholder="sk-..." autocomplete="off">
+    </div>
+    <div class="settings-field">
+      <label>Base URL</label>
+      <input type="text" id="settings-baseurl" placeholder="https://api.openai.com/v1" autocomplete="off">
+    </div>
+    <div class="settings-field">
+      <label>Model</label>
+      <input type="text" id="settings-model" placeholder="gpt-4o / claude-sonnet-5..." autocomplete="off">
+    </div>
+    <div class="settings-field">
+      <label>API 格式</label>
+      <select id="settings-format">
+        <option value="auto">自动检测（URL 含 anthropic → Anthropic，否则 OpenAI 兼容）</option>
+        <option value="openai">OpenAI 兼容</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+    </div>
+    <div class="settings-actions">
+      <button class="settings-save" id="settings-save-btn">保存</button>
+      <button class="settings-clear" id="settings-clear-btn">清除</button>
+    </div>
+    <div class="settings-hint">配置存在浏览器 localStorage，不会上传。清除后回退到服务端 .env 配置。</div>
+  </div>
+</div>
+<script>
+(function(){
+  // ===== 设置 modal 开关 =====
+  var overlay = document.getElementById('settings-overlay');
+  var btn = document.getElementById('nav-settings');
+  if (btn) btn.addEventListener('click', function(){
+    var cfg = JSON.parse(localStorage.getItem('md-theme-lab-config') || '{}');
+    document.getElementById('settings-apikey').value = cfg.apiKey || '';
+    document.getElementById('settings-baseurl').value = cfg.baseUrl || '';
+    document.getElementById('settings-model').value = cfg.model || '';
+    document.getElementById('settings-format').value = cfg.format || 'auto';
+    overlay.classList.add('show');
+  });
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.classList.remove('show'); });
+  document.getElementById('settings-save-btn').addEventListener('click', function(){
+    localStorage.setItem('md-theme-lab-config', JSON.stringify({
+      apiKey: document.getElementById('settings-apikey').value.trim(),
+      baseUrl: document.getElementById('settings-baseurl').value.trim(),
+      model: document.getElementById('settings-model').value.trim(),
+      format: document.getElementById('settings-format').value,
+    }));
+    overlay.classList.remove('show');
+    location.reload();
+  });
+  document.getElementById('settings-clear-btn').addEventListener('click', function(){
+    localStorage.removeItem('md-theme-lab-config');
+    overlay.classList.remove('show');
+    location.reload();
+  });
+
+  // ===== fetch 拦截：自动给 /api/ 请求加用户配置 header =====
+  var origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    if (typeof url === 'string' && url.startsWith('/api/')) {
+      var cfg = JSON.parse(localStorage.getItem('md-theme-lab-config') || '{}');
+      var headers = new Headers(opts.headers || {});
+      if (cfg.apiKey) headers.set('X-User-API-Key', cfg.apiKey);
+      if (cfg.baseUrl) headers.set('X-User-Base-URL', cfg.baseUrl);
+      if (cfg.model) headers.set('X-User-Model', cfg.model);
+      if (cfg.format) headers.set('X-User-Format', cfg.format);
+      opts.headers = headers;
+    }
+    return origFetch.call(this, url, opts);
+  };
+})();
 </script>
 </body>
 </html>

@@ -46,6 +46,116 @@ const client = new Anthropic({
 
 console.log(`[config] model=${MODEL} baseURL=${BASE_URL} auth=${AUTH_TOKEN ? 'Bearer' : 'x-api-key'}`);
 
+// ===== 每请求 AI 配置（界面用户可覆盖）=====
+function getAIConfig(req) {
+  const h = req?.headers || {};
+  const apiKey = h['x-user-api-key'] || API_KEY;
+  const baseUrl = h['x-user-base-url'] || BASE_URL;
+  const model = h['x-user-model'] || MODEL;
+  let format = h['x-user-format'] || 'auto';
+  if (format === 'auto') {
+    format = baseUrl.includes('anthropic') ? 'anthropic' : 'openai';
+  }
+  return { apiKey, baseUrl, model, format };
+}
+
+// ===== 统一 AI 调用（非流式）=====
+async function callAI(config, { system, messages, maxTokens = 4096, model }) {
+  const useModel = model || config.model;
+  if (config.format === 'anthropic') {
+    const c = new Anthropic({ apiKey: config.apiKey, baseURL: config.baseUrl });
+    // 转换 messages：OpenAI content string → Anthropic content blocks
+    const anthropicMessages = messages.map(m => ({
+      role: m.role,
+      content: typeof m.content === 'string'
+        ? [{ type: 'text', text: m.content }]
+        : m.content,
+    }));
+    const resp = await c.messages.create({
+      model: useModel, max_tokens: maxTokens, system,
+      messages: anthropicMessages,
+    });
+    return resp.content?.[0]?.text || '';
+  } else {
+    // OpenAI 兼容：system 转成 messages[0]
+    const oaiMessages = [];
+    if (system) oaiMessages.push({ role: 'system', content: typeof system === 'string' ? system : system.map(s => s.text || '').join('\n') });
+    oaiMessages.push(...messages.map(m => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content
+        : m.content.map(b => b.type === 'text' ? b.text : '').join(''),
+    })));
+    const r = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+      body: JSON.stringify({ model: useModel, messages: oaiMessages, max_tokens: maxTokens }),
+    });
+    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${await r.text()}`);
+    const data = await r.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+}
+
+// ===== 统一 AI 调用（流式）→ 回调 onDelta(text) =====
+async function callAIStream(config, { system, messages, maxTokens = 16000, model }, onDelta) {
+  const useModel = model || config.model;
+  if (config.format === 'anthropic') {
+    const c = new Anthropic({ apiKey: config.apiKey, baseURL: config.baseUrl });
+    const anthropicMessages = messages.map(m => ({
+      role: m.role,
+      content: typeof m.content === 'string'
+        ? [{ type: 'text', text: m.content }]
+        : m.content,
+    }));
+    const stream = c.messages.stream({
+      model: useModel, max_tokens: maxTokens, system, messages: anthropicMessages,
+    });
+    let fullText = '';
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta?.text) {
+        fullText += event.delta.text;
+        onDelta(event.delta.text);
+      }
+    }
+    return fullText;
+  } else {
+    const oaiMessages = [];
+    if (system) oaiMessages.push({ role: 'system', content: typeof system === 'string' ? system : system.map(s => s.text || '').join('\n') });
+    oaiMessages.push(...messages.map(m => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content
+        : m.content.map(b => b.type === 'text' ? b.text : '').join(''),
+    })));
+    const r = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+      body: JSON.stringify({ model: useModel, messages: oaiMessages, max_tokens: maxTokens, stream: true }),
+    });
+    if (!r.ok) throw new Error(`OpenAI stream ${r.status}: ${await r.text()}`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', fullText = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) { fullText += delta; onDelta(delta); }
+        } catch (_) {}
+      }
+    }
+    return fullText;
+  }
+}
+
 // JSONL chat log — one line per /api/chat call. Append-only daily file
 // under logs/. Used to debug "why did the model return X?" — captures
 // the request, accumulated response text, usage, and any errors.
@@ -262,45 +372,20 @@ app.post('/api/chat', async (req, res) => {
   const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
   try {
-    const stream = client.messages.stream({
-      model,
-      max_tokens: 16000,
-      system: [
-        {
-          type: 'text',
-          text: ARTIFACTS_SYSTEM_PROMPT,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages,
-    });
-
-    stream.on('text', (delta) => {
+    const cfg = getAIConfig(req);
+    const fullText = await callAIStream(cfg, {
+      system: ARTIFACTS_SYSTEM_PROMPT,
+      messages, maxTokens: 16000, model,
+    }, (delta) => {
       accText += delta;
       send({ type: 'text', delta });
     });
-
-    stream.on('error', (err) => {
-      console.error('[stream error]', err);
-      send({ type: 'error', message: err?.message ?? String(err) });
-      writeLog({ error: err?.message ?? String(err), errorType: 'stream' });
-    });
-
-    const final = await stream.finalMessage();
-    send({
-      type: 'done',
-      stop_reason: final.stop_reason,
-      usage: final.usage,
-    });
-    writeLog({ stopReason: final.stop_reason, usage: final.usage });
+    send({ type: 'done', chars: fullText.length });
+    writeLog({ chars: fullText.length });
     res.end();
   } catch (err) {
     console.error('[chat error]', err);
-    if (err instanceof Anthropic.APIError) {
-      send({ type: 'error', message: `API ${err.status}: ${err.message}` });
-    } else {
-      send({ type: 'error', message: err?.message ?? String(err) });
-    }
+    send({ type: 'error', message: err?.message ?? String(err) });
     writeLog({ error: err?.message ?? String(err), errorType: 'request' });
     res.end();
   }
@@ -646,13 +731,14 @@ function truncate(s, n) {
 
 app.post('/api/zone', async (req, res) => {
   const { messages, model: requestModel } = req.body;
-  const model = requestModel || MODEL;
+  const cfg = getAIConfig(req);
+  const model = requestModel || cfg.model;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array required' });
   }
-  if (!API_KEY) {
-    return res.status(500).json({ error: 'API_KEY not set in .env' });
+  if (!cfg.apiKey) {
+    return res.status(500).json({ error: 'API key not configured' });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -681,11 +767,11 @@ app.post('/api/zone', async (req, res) => {
         ...(isLast ? {} : { tools, tool_choice: 'auto' }),
       };
 
-      const upstream = await fetch(`${BASE_URL}/chat/completions`, {
+      const upstream = await fetch(`${cfg.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
+          'Authorization': `Bearer ${cfg.apiKey}`,
         },
         body: JSON.stringify(payload),
       });
@@ -1224,20 +1310,15 @@ app.post('/api/theme-gen', async (req, res) => {
       });
     }
 
-    const stream = client.messages.stream({
-      model: MODEL,
-      max_tokens: 4000,
-      system: [{ type: 'text', text: THEME_GEN_SYSTEM_PROMPT }],
+    const cfg = getAIConfig(req);
+    await callAIStream(cfg, {
+      system: THEME_GEN_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userContent }],
-    });
-
-    stream.on('text', (delta) => {
+      maxTokens: 4000,
+    }, (delta) => {
       acc += delta;
       send({ type: 'text', delta });
     });
-    stream.on('error', (err) => send({ type: 'error', message: err?.message ?? String(err) }));
-
-    const final = await stream.finalMessage();
     // 尽量从 acc 中提取 JSON（容错：去除可能的 ```json 包裹）
     let cleaned = acc.trim();
     cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -1280,13 +1361,13 @@ app.post('/api/theme-prompt-gen', async (req, res) => {
     const userText = seed
       ? `用户给的种子方向：${seed}\n请围绕它给一句新的主题描述。`
       : '随机给一句主题灵感描述。每次要不一样。';
-    const resp = await client.messages.create({
-      model: PROMPT_GEN_MODEL,
-      max_tokens: 200,
+    const cfg = getAIConfig(req);
+    const raw = await callAI(cfg, {
       system: PROMPT_GEN_SYSTEM,
       messages: [{ role: 'user', content: userText }],
+      maxTokens: 200, model: PROMPT_GEN_MODEL,
     });
-    const text = (resp.content?.[0]?.text || '').trim().replace(/^["'「]|["'」]$/g, '');
+    const text = raw.trim().replace(/^["'「]|["'」]$/g, '');
     console.log('[prompt-gen] ->', text);
     res.json({ ok: true, prompt: text });
   } catch (err) {
@@ -1349,13 +1430,12 @@ app.post('/api/palette-gen', async (req, res) => {
     } else {
       content.push({ type: 'text', text: `风格关键词：${seed || '随机一组现代感的配色'}\n\n请输出 ${count} 套 palette 的 JSON 数组。` });
     }
-    const resp = await client.messages.create({
-      model: imageBase64 ? MODEL : PALETTE_GEN_MODEL,  // 有图用 vision 模型（Opus）
-      max_tokens: 2500,
+    const cfg = getAIConfig(req);
+    let raw = (await callAI(cfg, {
       system: PALETTE_GEN_SYSTEM,
       messages: [{ role: 'user', content }],
-    });
-    let raw = (resp.content?.[0]?.text || '').trim();
+      maxTokens: 2500, model: imageBase64 ? MODEL : PALETTE_GEN_MODEL,
+    })).trim();
     raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
     let palettes;
     try { palettes = JSON.parse(raw); }
