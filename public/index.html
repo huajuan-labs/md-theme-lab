@@ -532,6 +532,14 @@
     .ws-expand-tab.right { right: 0; border-radius: 6px 0 0 6px; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
     .ws-hide-left .ws-expand-tab.left { display: block; }
     .ws-hide-right .ws-expand-tab.right { display: block; }
+    /* 打印：只显示预览内容，隐藏所有 UI */
+    @media print {
+      body * { visibility: hidden; }
+      #preview, #preview * { visibility: visible; }
+      #preview { position: absolute; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 20px !important; }
+      body { background: white !important; margin: 0 !important; padding: 0 !important; }
+      @page { margin: 10mm; }
+    }
     .workspace > .card,
     .workspace > .control-panel {
       display: flex;
@@ -10781,11 +10789,19 @@ data
         captureBtn.disabled = true;
         try {
           // 不设 backgroundColor, 让预览元素自己的背景(含网格)透出
+          // onclone: 把计算后的多层背景强制写 inline, html2canvas 对 repeating-linear-gradient 支持差
           const canvas = await html2canvas(target, {
             backgroundColor: null,
             scale: window.devicePixelRatio > 1 ? 2 : 1.5,
             useCORS: true,
             logging: false,
+            onclone: function(doc) {
+              var cloned = doc.getElementById('preview');
+              if (cloned && target) {
+                var cs = window.getComputedStyle(target);
+                cloned.style.background = cs.background;
+              }
+            },
             windowWidth: target.scrollWidth,
             windowHeight: target.scrollHeight,
           });
@@ -12403,7 +12419,7 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
     var themeName = (document.getElementById('theme-label')?.textContent || 'theme').trim();
     var ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     // 用 html2canvas 截图(跟 PNG 导出一样, 已验证能跑), 再用 jsPDF 包 PDF
-    window.html2canvas(preview, { scale: 3, useCORS: true, backgroundColor: null, logging: false }).then(function(canvas) {
+    window.html2canvas(preview, { scale: 3, useCORS: true, backgroundColor: null, logging: false, onclone: function(doc) { var c = doc.getElementById('preview'); if (c) { c.style.background = window.getComputedStyle(preview).background; } } }).then(function(canvas) {
       var imgData = canvas.toDataURL('image/jpeg', 0.95);
       var imgW = canvas.width;
       var imgH = canvas.height;
