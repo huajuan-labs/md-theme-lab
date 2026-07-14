@@ -503,11 +503,21 @@
     /* 三栏布局：整体随页面滚动，三栏各自高度自适应 */
     .workspace {
       display: grid;
-      grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.6fr) 320px;
-      gap: 16px;
+      grid-template-columns: var(--ws-col1, minmax(280px,1fr)) 6px var(--ws-col2, minmax(420px,1.6fr)) 6px var(--ws-col3, 320px);
+      gap: 5px;
       align-items: start;
       margin-bottom: 0;
     }
+    .resize-handle {
+      cursor: col-resize;
+      background: var(--border, #e8e8e8);
+      border-radius: 3px;
+      height: calc(100vh - 140px);
+      align-self: stretch;
+      transition: background .15s;
+      position: relative;
+    }
+    .resize-handle:hover, .resize-handle.dragging { background: var(--accent, #c45c2e); }
     .workspace > .card,
     .workspace > .control-panel {
       display: flex;
@@ -12394,6 +12404,79 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
   if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
   if (fsClose) fsClose.addEventListener('click', toggleFullscreen);
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && previewWrap && previewWrap.classList.contains('fullscreen')) toggleFullscreen(); });
+
+  // ===== 三栏拖拽调整宽度 =====
+  var ws = document.getElementById('workspace');
+  if (ws && ws.children.length >= 3) {
+    // 插入 2 个拖拽条
+    var h1 = document.createElement('div'); h1.className = 'resize-handle'; h1.dataset.idx = '1';
+    var h2 = document.createElement('div'); h2.className = 'resize-handle'; h2.dataset.idx = '2';
+    ws.insertBefore(h1, ws.children[1]); // editor | preview 之间
+    ws.insertBefore(h2, ws.children[3]); // preview | control 之间
+
+    // 恢复 localStorage 记忆的宽度
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('md-theme-lab-cols') || 'null'); } catch(_){}
+    if (saved && saved.c1 && saved.c2 && saved.c3) {
+      ws.style.setProperty('--ws-col1', saved.c1 + 'px');
+      ws.style.setProperty('--ws-col2', saved.c2 + 'px');
+      ws.style.setProperty('--ws-col3', saved.c3 + 'px');
+    }
+
+    var dragging = null;
+    function startDrag(e, handle) {
+      e.preventDefault();
+      dragging = {
+        handle: handle,
+        startX: e.clientX,
+        c1: ws.querySelector('.editor-card').offsetWidth,
+        c2: ws.children[2].offsetWidth, // preview card
+        c3: ws.children[4].offsetWidth, // control panel
+      };
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      var dx = e.clientX - dragging.startX;
+      var idx = dragging.handle.dataset.idx;
+      if (idx === '1') {
+        // 左+中调整：总宽不变，互相约束
+        var total = dragging.c1 + dragging.c2;
+        var nc1 = Math.max(200, Math.min(total - 300, dragging.c1 + dx));
+        var nc2 = total - nc1;
+        ws.style.setProperty('--ws-col1', nc1 + 'px');
+        ws.style.setProperty('--ws-col2', nc2 + 'px');
+      } else {
+        // 中+右调整：总宽不变，互相约束
+        var total2 = dragging.c2 + dragging.c3;
+        var nc2b = Math.max(300, Math.min(total2 - 240, dragging.c2 + dx));
+        var nc3 = total2 - nc2b;
+        ws.style.setProperty('--ws-col2', nc2b + 'px');
+        ws.style.setProperty('--ws-col3', nc3 + 'px');
+      }
+    }
+    function endDrag() {
+      if (!dragging) return;
+      dragging.handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      // 存 localStorage
+      try {
+        localStorage.setItem('md-theme-lab-cols', JSON.stringify({
+          c1: ws.querySelector('.editor-card').offsetWidth,
+          c2: ws.children[2].offsetWidth,
+          c3: ws.children[4].offsetWidth,
+        }));
+      } catch(_){}
+      dragging = null;
+    }
+    h1.addEventListener('mousedown', function(e){ startDrag(e, h1); });
+    h2.addEventListener('mousedown', function(e){ startDrag(e, h2); });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', endDrag);
+  }
 })();
 </script>
 </body>
