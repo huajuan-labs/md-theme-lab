@@ -32,7 +32,6 @@ const MODELS_ENV = process.env.AI_MODELS
   : null;
 const AUTH_TOKEN = process.env.API_AUTH_TOKEN;
 const API_KEY = process.env.API_KEY;
-const IMAGE_MODEL = process.env.IMAGE_MODEL || 'agnes-image-2.1-flash';
 
 const client = new Anthropic({
   // Anthropic SDK accepts either: apiKey -> x-api-key header,
@@ -561,14 +560,13 @@ const ZONE_SYSTEM_PROMPT = `你是花卷 (Huājuǎn)，花卷对话产品的 AI 
 【你是 agent，可主动调工具】
 - web_search(query, max_results?) — 联网检索。涉及最新新闻/事件/数据/产品发布/人物动态必须先调，禁瞎编
 - fetch_url(url) — 深读 web_search 给的链接
-- generate_image(prompt, ratio?, size?) — agnes 文生图。创意/抽象/概念图用。返回 URL 后写 ::image src=<url>
 - pexels_search(query, per_page?) — 真实摄影图。风景/人物/产品用，英文 query 效果好。返回 URL 后写 ::image src=<url>
 原则：不确定就调，宁可多搜一次别瞎答；拿到 URL 直接 ::image src=<url>，别写 gen=/search=
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【反 slop（设计感底线）】
 ❌ 紫渐变 / emoji 当图标 / 圆角卡左 border accent / SVG 手画人脸/产品场景 / 散落 hex
-✅ color 用 token；自定义配色用 ::palette；配图用 generate_image 或 pexels_search 真图；
+✅ color 用 token；自定义配色用 ::palette；
 ✅ 每个元素 earn its place。注意区分：
    - data slop = 无用数字/进度条装饰 → 禁
    - iconography slop = **每个**标题都配 icon（信息冗余）→ 禁；但 metric 旁、feature 列表、空状态等**语义位置**配 icon 是加分，鼓励
@@ -588,7 +586,6 @@ const ZONE_SYSTEM_PROMPT = `你是花卷 (Huājuǎn)，花卷对话产品的 AI 
 // 工具集：
 //   web_search(query)        — Tavily 联网检索
 //   fetch_url(url)           — Tavily extract 抓取并阅读单个 URL
-//   generate_image(prompt, ratio?, size?)  — Agnes 文生图
 //   pexels_search(query)     — Pexels 真实摄影
 //
 // 流式协议（追加到原有 {text,done,error}）：
@@ -651,41 +648,6 @@ const ZONE_TOOLS = {
       if (!r.ok) throw new Error(`Tavily extract ${r.status}`);
       const content = data?.results?.[0]?.raw_content || data?.results?.[0]?.content || '';
       return content || '（无正文）';
-    },
-  },
-  generate_image: {
-    schema: {
-      type: 'function',
-      function: {
-        name: 'generate_image',
-        description: '调用 agnes 文生图生成图片。用于创意插画、概念图、抽象表达。返回图片 URL，AI 应将 URL 写进 ::image src=<url>。',
-        parameters: {
-          type: 'object',
-          properties: {
-            prompt: { type: 'string', description: '图片描述，越具体越好' },
-            ratio: { type: 'string', description: '宽高比 1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9，默认 16:9' },
-            size: { type: 'string', description: '清晰度 1K/2K/3K/4K，默认 1K' },
-          },
-          required: ['prompt'],
-        },
-      },
-    },
-    async exec({ prompt, ratio, size }) {
-      const r = await fetch(`${BASE_URL}/images/generations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-        body: JSON.stringify({
-          model: IMAGE_MODEL,
-          prompt,
-          size: size || '1K',
-          ratio: ratio || '16:9',
-        }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(`Agnes image ${r.status}: ${JSON.stringify(data).slice(0, 200)}`);
-      const url = data?.data?.[0]?.url || data?.url;
-      if (!url) throw new Error('no image url');
-      return `图片已生成，URL: ${url}\n用法：::image src=${url} alt="${prompt.slice(0, 40)}"`;
     },
   },
   pexels_search: {
@@ -883,32 +845,6 @@ app.post('/api/zone', async (req, res) => {
 
 // ===== Image generation — 给组件层 ::image gen= 用的端点 =====
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
-
-// POST /api/image  { prompt, size?, ratio? } → { url }
-app.post('/api/image', async (req, res) => {
-  const { prompt, size, ratio } = req.body || {};
-  if (!prompt) return res.status(400).json({ error: 'prompt required' });
-  if (!API_KEY) return res.status(500).json({ error: 'API_KEY not set' });
-  try {
-    const r = await fetch(`${BASE_URL}/images/generations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-      body: JSON.stringify({
-        model: IMAGE_MODEL,
-        prompt,
-        ...(size ? { size } : {}),
-        ...(ratio ? { ratio } : {}),
-      }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status).json({ error: `Agnes image ${r.status}`, detail: data });
-    const url = data?.data?.[0]?.url || data?.url;
-    if (!url) return res.status(502).json({ error: 'no image url in response', detail: data });
-    res.json({ url });
-  } catch (e) {
-    res.status(500).json({ error: e?.message || String(e) });
-  }
-});
 
 // POST /api/search  { query, max_results?, search_depth?, include_answer? }
 // → { answer, results: [{title, url, content, score}] }
