@@ -8,6 +8,7 @@
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/morphdom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <style>
     :root {
       /* ===== Design Tokens · Primitive Layer ===== */
@@ -4012,6 +4013,9 @@ data: {"delta":"# 今日简报\n\n..."}</pre>
                 <circle cx="12" cy="13" r="3.6"></circle>
               </svg>
               <span>导出图片</span>
+            </button>
+            <button class="btn capture-btn" id="pdf-btn" title="导出为 PDF" style="padding:4px 10px;font-size:12px">
+              <span>导出PDF</span>
             </button>
             <button class="btn capture-btn" id="fullscreen-btn" title="全屏预览" style="padding:3px 8px">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="fs-icon-expand">
@@ -12389,6 +12393,31 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
   // ===== 全屏预览 =====
   var previewWrap = document.querySelector('.preview-wrap');
   var fsBtn = document.getElementById('fullscreen-btn');
+
+  // ===== 导出 PDF =====
+  var pdfBtn = document.getElementById('pdf-btn');
+  if (pdfBtn) pdfBtn.addEventListener('click', function() {
+    var preview = document.getElementById('preview');
+    if (!preview || !window.html2pdf) return;
+    pdfBtn.disabled = true;
+    pdfBtn.textContent = '生成中...';
+    var themeName = document.getElementById('theme-label')?.textContent || 'theme';
+    var ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    html2pdf().set({
+      margin: [10, 10, 10, 10],
+      filename: 'md_' + themeName + '_' + ts + '.pdf',
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    }).from(preview).save().then(function() {
+      pdfBtn.disabled = false;
+      pdfBtn.textContent = '导出PDF';
+    }).catch(function() {
+      pdfBtn.disabled = false;
+      pdfBtn.textContent = '导出PDF';
+    });
+  });
   var fsClose = document.getElementById('fs-close');
   var iconExpand = document.getElementById('fs-icon-expand');
   var iconCompress = document.getElementById('fs-icon-compress');
