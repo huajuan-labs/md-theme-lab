@@ -8,7 +8,7 @@
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/morphdom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
       /* ===== Design Tokens · Primitive Layer ===== */
@@ -3806,7 +3806,7 @@
   <nav class="nav-bar" id="nav-bar">
     <img src="/imgs/logo.png" alt="花卷" class="brand-logo">
     <span class="nav-title">花卷 MD 主题实验室</span>
-    <span class="nav-slogan">来自 <strong>花卷 (Huājuǎn)</strong> · <em>卷出新花样</em></span>
+    <span class="nav-slogan">来自 <strong><a href="https://github.com/huajuan-labs" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">花卷 (Huājuǎn)</a></strong> · <em>卷出新花样</em></span>
     <span class="nav-spacer"></span>
     <button class="nav-export nav-guide" id="nav-guide" title="如何把花卷主题接入到其他项目">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-2px">
@@ -12398,22 +12398,42 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
   var pdfBtn = document.getElementById('pdf-btn');
   if (pdfBtn) pdfBtn.addEventListener('click', function() {
     var preview = document.getElementById('preview');
-    if (!preview || !window.html2pdf) return;
+    if (!preview || typeof window.html2canvas === 'undefined') return;
     pdfBtn.disabled = true;
     pdfBtn.textContent = '生成中...';
-    var themeName = document.getElementById('theme-label')?.textContent || 'theme';
+    var themeName = (document.getElementById('theme-label')?.textContent || 'theme').trim();
     var ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-    html2pdf().set({
-      margin: [10, 10, 10, 10],
-      filename: 'md_' + themeName + '_' + ts + '.pdf',
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
-    }).from(preview).save().then(function() {
-      pdfBtn.disabled = false;
-      pdfBtn.textContent = '导出PDF';
-    }).catch(function() {
+    // 用 html2canvas 截图(跟 PNG 导出一样, 已验证能跑), 再用 jsPDF 包 PDF
+    window.html2canvas(preview, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false }).then(function(canvas) {
+      var imgData = canvas.toDataURL('image/jpeg', 0.95);
+      var imgW = canvas.width;
+      var imgH = canvas.height;
+      // 从 html2pdf.bundle 拿 jsPDF
+      var jsPDF = window.jspdf?.jsPDF || window.jsPDF;
+      if (!jsPDF) throw new Error('jsPDF not found');
+      var pdf = new jsPDF('p', 'mm', 'a4');
+      var pageW = 210;
+      var pageH = 297;
+      var margin = 10;
+      var contentW = pageW - margin * 2;
+      var contentH = pageH - margin * 2;
+      var scale = contentW / imgW;
+      var scaledH = imgH * scale;
+      var heightLeft = scaledH;
+      var position = margin;
+      pdf.addImage(imgData, 'JPEG', margin, position, contentW, scaledH);
+      heightLeft -= contentH;
+      while (heightLeft > 0) {
+        position = margin - (scaledH - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, position, contentW, scaledH);
+        heightLeft -= contentH;
+      }
+      pdf.save('md_' + themeName + '_' + ts + '.pdf');
+    }).catch(function(err) {
+      console.error('[PDF export] failed:', err);
+      alert('PDF 导出失败: ' + (err?.message || err));
+    }).finally(function() {
       pdfBtn.disabled = false;
       pdfBtn.textContent = '导出PDF';
     });
