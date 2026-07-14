@@ -518,6 +518,19 @@
       position: relative;
     }
     .resize-handle:hover, .resize-handle.dragging { background: var(--accent, #c45c2e); }
+    /* 模块收起 */
+    .collapse-btn { cursor: pointer; opacity: .5; transition: opacity .15s; font-size: 14px; padding: 0 4px; }
+    .collapse-btn:hover { opacity: 1; }
+    .ws-hide-left { grid-template-columns: 0 0 1fr 6px var(--ws-col3, 320px) !important; }
+    .ws-hide-left > .editor-card, .ws-hide-left > .resize-handle[data-idx="1"] { display: none; }
+    .ws-hide-right { grid-template-columns: var(--ws-col1, minmax(280px,1fr)) 6px 1fr 0 0 !important; }
+    .ws-hide-right > .control-panel, .ws-hide-right > .resize-handle[data-idx="2"] { display: none; }
+    .ws-hide-left.ws-hide-right { grid-template-columns: 0 0 1fr 0 0 !important; }
+    .ws-expand-tab { position: fixed; top: 50%; transform: translateY(-50%); z-index: 9998; background: var(--accent, #c45c2e); color: #fff; padding: 12px 4px; border-radius: 0 6px 6px 0; cursor: pointer; font-size: 12px; writing-mode: vertical-rl; display: none; }
+    .ws-expand-tab.left { left: 0; border-radius: 0 6px 6px 0; }
+    .ws-expand-tab.right { right: 0; border-radius: 6px 0 0 6px; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
+    .ws-hide-left .ws-expand-tab.left { display: block; }
+    .ws-hide-right .ws-expand-tab.right { display: block; }
     .workspace > .card,
     .workspace > .control-panel {
       display: flex;
@@ -12475,6 +12488,54 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
     h2.addEventListener('mousedown', function(e){ startDrag(e, h2); });
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', endDrag);
+
+    // ===== 模块收起/展开 =====
+    // 折叠按钮插入到编辑器 + 工具栏 header
+    var editorHeader = ws.querySelector('.editor-card .card-header');
+    var ctrlHeader = ws.querySelector('.control-panel .tool-tabs') || ws.querySelector('.control-panel');
+    if (editorHeader) {
+      var clBtn = document.createElement('span');
+      clBtn.className = 'collapse-btn';
+      clBtn.innerHTML = '‹';
+      clBtn.title = '收起编辑器';
+      clBtn.style.cssText = 'margin-left:auto;flex-shrink:0';
+      clBtn.addEventListener('click', function(){ ws.classList.toggle('ws-hide-left'); saveCollapse(); });
+      editorHeader.appendChild(clBtn);
+    }
+    if (ctrlHeader) {
+      var crBtn = document.createElement('span');
+      crBtn.className = 'collapse-btn';
+      crBtn.innerHTML = '›';
+      crBtn.title = '收起工具栏';
+      crBtn.style.cssText = 'margin-left:auto;flex-shrink:0';
+      crBtn.addEventListener('click', function(){ ws.classList.toggle('ws-hide-right'); saveCollapse(); });
+      ctrlHeader.appendChild(crBtn);
+    }
+    // 展开条（折叠后边缘出现）
+    var tabL = document.createElement('div');
+    tabL.className = 'ws-expand-tab left';
+    tabL.textContent = '编辑器';
+    tabL.addEventListener('click', function(){ ws.classList.remove('ws-hide-left'); saveCollapse(); });
+    document.body.appendChild(tabL);
+    var tabR = document.createElement('div');
+    tabR.className = 'ws-expand-tab right';
+    tabR.textContent = '工具栏';
+    tabR.addEventListener('click', function(){ ws.classList.remove('ws-hide-right'); saveCollapse(); });
+    document.body.appendChild(tabR);
+    function saveCollapse() {
+      try { sessionStorage.setItem('md-theme-lab-collapse', JSON.stringify({
+        left: ws.classList.contains('ws-hide-left'),
+        right: ws.classList.contains('ws-hide-right')
+      })); } catch(_){}
+    }
+    // 恢复折叠状态
+    try {
+      var col = JSON.parse(sessionStorage.getItem('md-theme-lab-collapse') || 'null');
+      if (col) {
+        if (col.left) ws.classList.add('ws-hide-left');
+        if (col.right) ws.classList.add('ws-hide-right');
+      }
+    } catch(_){}
   }
 })();
 </script>
