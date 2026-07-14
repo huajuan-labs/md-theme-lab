@@ -8,7 +8,6 @@ import { createRequire } from 'module';
 const _require = createRequire(import.meta.url);
 const { ZipArchive } = _require('archiver');
 import { fileURLToPath } from 'url';
-import { setupPromaxAPI } from './promax-api.js';
 import { buildBundle } from './export-themes.js';
 
 // override: true so values in .env take precedence over inherited shell env
@@ -1040,7 +1039,6 @@ app.post('/api/business-forms/:name/submit', async (req, res) => {
   }
 });
 
-setupPromaxAPI(app);
 
 // ===== 用户主题持久化（SQLite）=====
 const DATA_DIR = path.join(__dirname, 'data');
