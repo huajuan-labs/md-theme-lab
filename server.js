@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 import { buildBundle } from './export-themes.js';
 
 // override: true so values in .env take precedence over inherited shell env
-// (Claude Code's shell preloads ANTHROPIC_API_KEY/BASE_URL for its own use).
+// (Claude Code's shell preloads API_KEY/BASE_URL for its own use).
 dotenv.config({ override: true });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,17 +21,17 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+if (!process.env.API_KEY && !process.env.API_AUTH_TOKEN) {
   console.warn('[warn] No API key in .env. Server starts, but AI features need key configured via UI (gear icon) or .env.');
 }
 
-const MODEL = process.env.CLAUDE_MODEL || 'agnes-2.0-flash';
-const BASE_URL = process.env.ANTHROPIC_BASE_URL || 'https://apihub.agnes-ai.com/v1';
-const MODELS_ENV = process.env.CLAUDE_MODELS
-  ? process.env.CLAUDE_MODELS.split(',').map(s => s.trim()).filter(Boolean)
+const MODEL = process.env.AI_MODEL || 'agnes-2.0-flash';
+const BASE_URL = process.env.API_BASE_URL || 'https://apihub.agnes-ai.com/v1';
+const MODELS_ENV = process.env.AI_MODELS
+  ? process.env.AI_MODELS.split(',').map(s => s.trim()).filter(Boolean)
   : null;
-const AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
-const API_KEY = process.env.ANTHROPIC_API_KEY;
+const AUTH_TOKEN = process.env.API_AUTH_TOKEN;
+const API_KEY = process.env.API_KEY;
 const IMAGE_MODEL = process.env.IMAGE_MODEL || 'agnes-image-2.1-flash';
 
 const client = new Anthropic({
