@@ -4,6 +4,8 @@
 
 写 markdown，选主题，预览美化效果，导出图片。20+ 主题预设，Design Token 系统，AI 主题/调色板生成，一键导出。设计的主题可导出为 ZoneDSL `.wxss` 主题文件，直接在小程序/Web 中使用。
 
+![MD Theme Lab 截图](screenshot/1.png)
+
 ## 快速开始
 
 ### Docker 部署（推荐）
