@@ -540,7 +540,7 @@
       .export-mask, #guide-mask, #fs-close,
       .card-header { display: none !important; }
       .workspace { display: block !important; grid-template-columns: none !important; gap: 0 !important; }
-      .workspace > .card { display: block !important; height: auto !important; overflow: visible !important; min-height: 0 !important; }
+      .workspace > .card:not(.editor-card) { display: block !important; height: auto !important; overflow: visible !important; min-height: 0 !important; }
       .preview-wrap { display: block !important; height: auto !important; overflow: visible !important; flex: none !important; min-height: 0 !important; }
       #preview { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; overflow: visible !important; flex: none !important; min-height: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
