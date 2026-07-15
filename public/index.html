@@ -532,19 +532,14 @@
     .ws-expand-tab.right { right: 0; border-radius: 6px 0 0 6px; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
     .ws-hide-left .ws-expand-tab.left { display: block; }
     .ws-hide-right .ws-expand-tab.right { display: block; }
-    /* 打印：隐藏 UI, 重置布局约束(保留主题视觉), 预览可分页 */
+    /* 打印：JS 会把 preview 移到 body 下, 这里只做基础隐藏 */
     @media print {
-      html, body { height: auto !important; overflow: visible !important; }
       .nav-bar, .editor-card, .control-panel, .resize-handle,
       .fs-close, .no-backend-banner, .settings-overlay,
       .collapse-btn, .ws-expand-tab, .site-footer,
       .export-mask, #guide-mask, #fs-close,
-      .card-header { display: none !important; }
-      .app { max-width: none !important; padding: 0 !important; }
-      .workspace { display: block !important; grid-template-columns: none !important; gap: 0 !important; }
-      .workspace > .card:not(.editor-card) { display: block !important; height: auto !important; max-height: none !important; overflow: visible !important; min-height: 0 !important; }
-      .preview-wrap { display: block !important; height: auto !important; max-height: none !important; overflow: visible !important; flex: none !important; min-height: 0 !important; }
-      #preview { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; overflow: visible !important; flex: none !important; min-height: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .card-header, .workspace, .app { display: none !important; }
+      #print-root { display: block !important; }
       body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       @page { margin: 10mm; }
     }
@@ -12486,6 +12481,24 @@ html.fs-active,body.fs-active{overflow:hidden!important;height:100%!important}
   if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
   if (fsClose) fsClose.addEventListener('click', toggleFullscreen);
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && previewWrap && previewWrap.classList.contains('fullscreen')) toggleFullscreen(); });
+
+  // ===== 系统打印：克隆 preview 到 body 下, 脱离所有父容器约束, 可跨页 =====
+  var printRoot = document.createElement('div');
+  printRoot.id = 'print-root';
+  printRoot.style.display = 'none';
+  document.body.appendChild(printRoot);
+  window.addEventListener('beforeprint', function() {
+    var preview = document.getElementById('preview');
+    if (preview) {
+      printRoot.innerHTML = '';
+      printRoot.appendChild(preview.cloneNode(true));
+      printRoot.style.display = 'block';
+    }
+  });
+  window.addEventListener('afterprint', function() {
+    printRoot.innerHTML = '';
+    printRoot.style.display = 'none';
+  });
 
   // ===== 三栏拖拽调整宽度 =====
   var ws = document.getElementById('workspace');
