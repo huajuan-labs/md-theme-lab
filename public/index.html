@@ -534,15 +534,17 @@
     .ws-hide-right .ws-expand-tab.right { display: block; }
     /* 打印：隐藏 UI, 重置布局约束(保留主题视觉), 预览可分页 */
     @media print {
+      html, body { height: auto !important; overflow: visible !important; }
       .nav-bar, .editor-card, .control-panel, .resize-handle,
       .fs-close, .no-backend-banner, .settings-overlay,
       .collapse-btn, .ws-expand-tab, .site-footer,
       .export-mask, #guide-mask, #fs-close,
       .card-header { display: none !important; }
+      .app { max-width: none !important; padding: 0 !important; }
       .workspace { display: block !important; grid-template-columns: none !important; gap: 0 !important; }
-      .workspace > .card:not(.editor-card) { display: block !important; height: auto !important; overflow: visible !important; min-height: 0 !important; }
-      .preview-wrap { display: block !important; height: auto !important; overflow: visible !important; flex: none !important; min-height: 0 !important; }
-      #preview { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; overflow: visible !important; flex: none !important; min-height: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .workspace > .card:not(.editor-card) { display: block !important; height: auto !important; max-height: none !important; overflow: visible !important; min-height: 0 !important; }
+      .preview-wrap { display: block !important; height: auto !important; max-height: none !important; overflow: visible !important; flex: none !important; min-height: 0 !important; }
+      #preview { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; overflow: visible !important; flex: none !important; min-height: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       @page { margin: 10mm; }
     }
